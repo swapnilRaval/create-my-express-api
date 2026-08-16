@@ -1,0 +1,22 @@
+{
+  "watch": [
+    "app.js",
+    "www",
+    "config",
+    "controllers",
+    "helpers",
+    "middlewares",
+    "models",
+    "routes",
+    "services",
+    "utils",
+    "validators",
+    "views"
+  ],
+  "ext": "js,json,ejs",
+  "ignore": ["node_modules/**", "uploads/**", "logs/**", "coverage/**", "tests/**"],
+  "delay": 300,
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="shell shell--error">
+    <h1><%= statusCode %></h1>
+    <p class="sub"><%= message %></p>
+    <% if (stack) { %>
+      <pre class="stack"><%= stack %></pre>
+    <% } %>
+    <p><a href="/">Back to the index</a></p>
+  </main>
+</body>
+</html>

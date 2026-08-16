@@ -1,0 +1,107 @@
+#!/usr/bin/env node
+'use strict';
+
+/**
+ * Server entry point (Express-generator style).
+ *
+ * Responsibilities that deliberately do NOT live in app.js:
+ *   1. read and validate configuration
+ *   2. connect to MongoDB
+ *   3. bind the HTTP server
+ *   4. translate listen errors into readable messages
+ *   5. shut down cleanly on SIGINT / SIGTERM
+ *
+ * Run with:  node ./www     or     npm run dev
+ */
+
+const http = require('node:http');
+
+const env = require('./config/env');
+const logger = require('./utils/logger');
+const { connectDatabase, disconnectDatabase } = require('./config/db');
+const app = require('./app');
+
+const server = http.createServer(app);
+let shuttingDown = false;
+
+function onListening() {
+  const address = server.address();
+  const bind = typeof address === 'string' ? `pipe ${address}` : `port ${address.port}`;
+  logger.info(`HTTP server listening on ${bind} [${env.NODE_ENV}]`);
+  logger.info(`Health check: http://localhost:${env.PORT}/health`);
+}
+
+function onError(error) {
+  if (error.syscall !== 'listen') throw error;
+  const bind = `Port ${env.PORT}`;
+
+  switch (error.code) {
+    case 'EACCES':
+      logger.error(`${bind} requires elevated privileges. Use a port above 1023.`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      logger.error(`${bind} is already in use. Stop the other process or set PORT in .env.`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info(`${signal} received - shutting down`);
+
+  // Stop accepting new connections, then drain, then close Mongo.
+  const forceExit = setTimeout(() => {
+    logger.error('Graceful shutdown timed out after 10s - forcing exit');
+    process.exit(1);
+  }, 10_000);
+  forceExit.unref();
+
+  server.close(async (err) => {
+    if (err) logger.error(`Error closing HTTP server: ${err.message}`);
+    try {
+      await disconnectDatabase();
+      logger.info('Shutdown complete');
+      process.exit(err ? 1 : 0);
+    } catch (closeErr) {
+      logger.error(`Error closing database: ${closeErr.message}`);
+      process.exit(1);
+    }
+  });
+}
+
+async function start() {
+  try {
+    await connectDatabase();
+  } catch (err) {
+    logger.error(`Could not connect to MongoDB: ${err.message}`);
+    logger.error('Check MONGO_URI in .env and that mongod is running.');
+    process.exit(1);
+  }
+
+  server.on('error', onError);
+  server.on('listening', onListening);
+  server.listen(env.PORT);
+}
+
+['SIGINT', 'SIGTERM'].forEach((signal) => {
+  process.on(signal, () => { shutdown(signal); });
+});
+
+// A rejected promise nobody handled means the process is in an unknown state.
+// Log it loudly and exit so the supervisor restarts a clean process.
+process.on('unhandledRejection', (reason) => {
+  logger.error(`Unhandled promise rejection: ${reason instanceof Error ? reason.stack : reason}`);
+  shutdown('unhandledRejection');
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error(`Uncaught exception: ${err.stack || err.message}`);
+  process.exit(1);
+});
+
+start();
