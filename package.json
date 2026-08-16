@@ -6,9 +6,9 @@
   "main": "app.js",
   "type": "commonjs",
   "scripts": {
-    "dev": "nodemon ./www",
+    "dev": "node init && nodemon ./www",
     "lint": "echo \"Add ESLint if you want it: npm i -D eslint\" && exit 0",
-    "start": "node ./www",
+    "start": "node init && node ./www",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch --runInBand"
   },
